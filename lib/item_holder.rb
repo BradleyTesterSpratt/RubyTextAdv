@@ -35,7 +35,7 @@ class ItemHolder
 	def display_contents
 		array = []
 		@contents.each do |item|
-			array << "#{item.name}, #{item.weight}"
+			array << "#{item.name}(#{item.weight})"
 		end
 		return array
 	end

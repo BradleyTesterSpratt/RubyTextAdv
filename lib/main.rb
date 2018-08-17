@@ -5,12 +5,16 @@ require 'constants'
 require 'json'
 require 'player'
 require 'highline'
+require 'tty-box'
 
 class Main
 	def initialize
 		@parser = Parser.new
 		@map = []
 		build_map(Constants::LevelOne)
+		@inv_content= ""
+		@room_content = ""
+		@output_content = ""
 	end
 
 	attr_reader :map
@@ -18,17 +22,25 @@ class Main
 	def play
 		play=true
 		clear
+		help
+		room_frame
+		output_frame
+		inv_frame
 		print get_string("Enter your name : ","yellow")
 		@player=Player.new(gets.chomp)
 		@inventory = @player.bag
 		@current_location=map[0]
 		@previous_location= []
-		look("help")
+		look
 		while play
+			clear
+			room_frame
+			output_frame
+			@inv_content= @inventory.contents.empty? ? get_string("Empty","green") : get_string(@inventory.display_contents.join(', ').to_s,"green")
+			inv_frame
 			valid_input=false
 			while !valid_input
-				#print get_string("Enter Command : ","yellow")
-				input=get_input("Enter Command : ","yellow")#gets.chomp
+				input=get_input("Enter Command : ","yellow")
 				if (@parser.call(input))
 					valid_input=true
 					commands = @parser.retrieve
@@ -43,8 +55,7 @@ class Main
 									look
 								end
 						when commands[1].nil? then 
-							look
-							puts get_string("You need to give a direction","red")
+							@output_content = get_string("You need to give a direction","red")
 						else move(commands[1])
 					end
 				when commands[0] == "look" then
@@ -52,22 +63,19 @@ class Main
 						when commands[1]==nil then look
 						when commands[1] == "around" then look_around
 					else
-						puts get_string("Look at what?","red")
+						@output_content = get_string("Look at what?","red")
 					end
 				when commands[0] == "quit"
-					look
 					print get_string('type "yes" to quit: ',"yellow")
 					if (gets.chomp.downcase == "yes")
 						play=false
-						clear
 					end
 				when commands[0] == "help"
-					look("help")
+					help
 				when commands [0] == "grab"
 					current_floor = @current_location.floor
 					if current_floor.contents.empty?
-						look
-						puts get_string("There are no items","red")
+						@output_content = get_string("There are no items","red")
 					else
 						print get_string("Enter object to grab: ","yellow")
 						item=gets.chomp
@@ -75,11 +83,9 @@ class Main
 							if item == valid_item.name	
 								if @inventory.add_item(valid_item)
 									current_floor.remove_item(valid_item)
-									look
-									puts get_string("#{@player.name} picked up the #{item}","green")
+									@output_content = get_string("#{@player.name} picked up the #{item}","green")
 								else
-									look
-									puts get_string("#{item} is too heavy","red")
+									@output_content = get_string("#{item} is too heavy","red")
 								end
 							else
 								puts "debug"
@@ -89,8 +95,7 @@ class Main
 				when commands[0] == "drop"
 					current_floor = @current_location.floor
 					if @inventory.contents.empty?
-						look
-						puts get_string("#{@player.name} has nothing to drop","red")
+						@output_content = get_string("#{@player.name} has nothing to drop","red")
 						else
 							print get_string("Enter object to drop: ","yellow")
 							item=gets.chomp
@@ -98,18 +103,15 @@ class Main
 								if item == valid_item.name	
 									if current_floor.add_item(valid_item)
 										@inventory.remove_item(valid_item)
-										look
-										puts get_string("#{@player.name} dropped the #{item}","green")
+										@output_content = get_string("#{@player.name} dropped the #{item}","green")
 									else
-										look
-										puts get_string("There is no room on the floor for #{item}","red")
+										@output_content = get_string("There is no room on the floor for #{item}","red")
 									end
 								end
 							end
 						end
 				else 
-					look
-					puts get_string("please enter a valid command","red")
+					@output_content = get_string("please enter a valid command","red")
 				end
 			end
 	end
@@ -122,28 +124,28 @@ class Main
 	end 
 
 	def get_input(string,colour)
-		print get_string("Inventory : ","green")
-		@inventory.contents.empty? ? (puts get_string("[ Empty ]","green")) : (puts get_string(@inventory.display_contents.to_s,"green"))
 		print get_string(string,colour)
+		#get_line_default(highline)
 		gets.chomp
 	end
 
-	def look(variable = nil)
-		clear
-		puts get_string("valid commands are :","green"), "go north, go east, go west, go back", "look, look around, grab", "quit, help", " " if !variable.nil?
-		puts @current_location.description
+	def look
+		@room_content = @current_location.description + "\n"
 		@current_location.neighbors.each do |neighbor|	
 			#add exit description to json and use that
-			puts "There is an exit to the #{get_string(neighbor[1],"blue")}."
+			@room_content = @room_content + "There is an exit to the #{get_string(neighbor[1],"blue")}\n"
 		end
 	end
 
+	def help
+			@room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
+		end
+
 	def look_around
-		clear
-		puts @current_location.long_description
+		@room_content = @current_location.long_description + "\n"
 		if !@current_location.floor.contents.empty?
 			@current_location.floor.contents.each do |item|
-				puts "There is a #{get_string(item.name,"green")}."
+				@room_content = @room_content + "There is a #{get_string(item.name,"green")}\n"
 			end
 		end
 	end
@@ -155,17 +157,16 @@ class Main
 				@map.each do |room|
 					if room.name == neighbor[0]
 						@previous_location << @current_location
-						@current_location = room
+						@room_content = @current_location = room
 						look
-						puts get_string("#{@player.name} travelled #{direction}","green")
+						@output_content = get_string("#{@player.name} travelled #{direction}","green")
 						can_move=true
 					end
 				end
 			end
 		end
 		if !can_move
-			look
-			puts get_string("There is nothing in that direction","red") 
+			@output_content = get_string("There is nothing in that direction","red") 
 		end
 	end
 
@@ -185,6 +186,39 @@ class Main
 			end
 			@map << room
 		end
+	end
+
+	def room_frame
+		box = TTY::Box.frame(
+			width: 50, 
+			height: 10,  
+			border: :thick) do
+			@room_content
+		end
+		print box
+	end
+
+	def output_frame
+		box = TTY::Box.frame(
+			width: 50, 
+			height: 3,  
+			border: :thick, 
+			style: { border: { fg: :yellow } } ) do
+			@output_content
+		end
+		print box
+	end
+
+	def inv_frame
+		box = TTY::Box.frame(
+			width: 50, 
+			height: 3,  
+			border: :thick, 
+			title: {top_left: "INVENTORY"}, 
+			style: { border: { fg: :green } } ) do
+			@inv_content
+		end
+		print box
 	end
 
 	def clear
