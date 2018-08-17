@@ -87,6 +87,7 @@ class Main
 						end
 					end
 				when commands[0] == "drop"
+					current_floor = @current_location.floor
 					if @inventory.contents.empty?
 						look
 						puts get_string("#{@player.name} has nothing to drop","red")
