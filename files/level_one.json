@@ -1,0 +1,80 @@
+{
+  "Room": [
+    {
+      "name" : "Outside",
+      "desc" : "You are outside",
+      "long_desc" : "The surronding area is very rocky, there is a building in front of you",
+      "neighbors" : [
+        {
+          "name" : "Entrance",
+          "direction" : "north",
+          "locked" : true
+        }
+      ],
+      "items": [
+        {
+          "name": "key",
+          "weight": 1
+        },
+        {
+          "name": "fork",
+          "weight": 2
+        },
+        {
+          "name": "small rock",
+          "weight": 18
+        },
+        {
+          "name": "big rock",
+          "weight": 30
+        }
+      ]
+    },
+    {
+      "name": "Entrance",
+      "desc": "You are in the entrace room of the building",
+      "long_desc" : "The room is empty, it has two hallways either side of it",
+      "neighbors": [
+        {
+          "name": "West Hall",
+          "direction": "west",
+          "locked" : false
+        },
+        {
+          "name": "East Hall",
+          "direction": "east",
+          "locked" : false
+        },
+        {
+          "name": "Outside",
+          "direction": "south",
+          "locked" : false
+        }
+      ]
+    },
+    {
+      "name": "West Hall",
+      "desc": "You are in the west hallway",
+      "long_desc": "You are in the west hallway",
+      "neighbors": [
+        {
+          "name": "Entrance",
+          "direction": "east",
+          "locked" : false
+        }
+      ]
+    },
+    {
+      "name": "East Hall",
+      "desc": "You are in the east hallway",
+      "long_desc": "You are in the east hallway",      
+      "neighbors": [
+        {
+          "name": "Entrance",
+          "direction": "west",
+          "locked" : false
+        }
+      ]
+    }
+  ]
+}
