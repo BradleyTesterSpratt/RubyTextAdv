@@ -1,6 +1,6 @@
 class CommandWord
   def initialize
-  	@valid_commands = ["go", "north", "south", "east", "west","quit", "look", "around", "back", "help", "grab", "drop"] #, "at", "use", "on" 
+  	@valid_commands = ["go", "north", "south", "east", "west", "quit", "look", "around", "back", "help", "grab", "drop"] #, "at", "use", "on" 
   end
 
   attr_reader :valid_commands

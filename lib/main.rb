@@ -14,78 +14,39 @@ class Main
 		@inv_content= ""
 		@room_content = ""
 		@output_content = ""
+		@parser=Parser.new
 	end
 
 	attr_reader :map
 
 	def play
+		inital_setup
 		play=true
-		clear
-		help
-		room_frame
-		output_frame
-		inv_frame
-		print get_string("Enter your name : ","yellow")
-		@player=Player.new(gets.chomp)
-		@inventory = @player.bag
-		@current_location=map[0]
-		@previous_location= []
-		look
 		while play
-			clear
-			room_frame
-			output_frame
 			@inv_content= @inventory.contents.empty? ? get_string("Empty","green") : get_string(@inventory.display_contents.join(', ').to_s,"green")
-			inv_frame
-			valid_input=false
-			commands = []
-			params = []
-	 		while !valid_input
-	 			input=get_input("Enter Command : ","yellow")
-	 			@parser=Parser.new
-	 			if (@parser.call(input))
-					valid_input=true
-					commands = @parser.retrieve[0]
-					params = @parser.retrieve[1]
-	 			end
+			print_frames
+			@parser.call(get_input("Enter Command : ","yellow"))
+ 			commands, params = @parser.retrieve
 			case 
-				when commands[0] == "go"
+				when commands[0] == "go" then move(commands[1])
+				when commands[0] == "look" 
 					case
-						when commands[1] == "back" then
-								if !@previous_location.empty?
-									@current_location = @previous_location.pop
-									@output_content = get_string("#{@player.name} returned to #{@current_location.name}","green")
-									look
-								end
-						when commands[1].nil? then 
-							@output_content = get_string("You need to give a direction","red")
-						else 
-							move(commands[1])
-					end
-				when commands[0] == "look" then
-					case
-						when commands[1]==nil then look
 						when commands[1] == "around" then look_around
-					else
-						@output_content = get_string("Look at what?","red")
+						#when commands[1] == "at" then look_at
+						else look
 					end
 				when commands[0] == "quit"
 					print get_string('type "yes" to quit: ',"yellow")
 					if (gets.chomp.downcase == "yes")
 						play=false
 					end
-				when commands[0] == "help"
-					help
-				when commands[0] == "grab"
-					grab(params,@current_location.floor)
-				when commands[0] == "drop"
-					drop(params,@current_location.floor)
-				else 
-					@output_content = get_string("please enter a valid command","red")
-				end
+				when commands[0] == "help" then help
+				when commands[0] == "grab" then grab(params,@current_location.floor)
+				when commands[0] == "drop" then drop(params,@current_location.floor)
+				else @output_content = get_string("please enter a valid command","red")
 	 		end
 	 	end
-	 end
+	end
 
 	def get_string(string,colour)
 		if !HighLine.String(string).respond_to? colour
@@ -97,6 +58,18 @@ class Main
 	def get_input(string,colour)
 		print get_string(string,colour)
 		gets.chomp
+	end
+
+	def inital_setup
+		help
+		print_frames
+		print get_string("Enter your name : ","yellow")
+		@player=Player.new(gets.chomp)
+		@inventory = @player.bag
+		@current_location=map[0]
+		@previous_location= []
+		print_frames
+		look
 	end
 
 	def look
@@ -121,24 +94,36 @@ class Main
 	end
 
 	def move(direction)
-		can_move=false
-		@current_location.neighbors.each do |neighbor|
-			if neighbor[1].downcase == direction
-				@map.each do |room|
-					if room.name == neighbor[0]
-						@previous_location << @current_location
-						@room_content = @current_location = room
+		case
+			when direction == "back" then
+					if !@previous_location.empty?
+						@current_location = @previous_location.pop
+						@output_content = get_string("#{@player.name} returned to #{@current_location.name}","green")
 						look
-						@output_content = get_string("#{@player.name} travelled #{direction}","green")
-						can_move=true
 					end
+			when direction.nil? then 
+				@output_content = get_string("You need to give a direction","red")
+			when !direction.nil? then
+				can_move=false
+				@current_location.neighbors.each do |neighbor|
+				if neighbor[1].downcase == direction
+					@map.each do |room|
+						if room.name == neighbor[0]
+							@previous_location << @current_location
+							@room_content = @current_location = room
+							look
+							@output_content = get_string("#{@player.name} travelled #{direction}","green")
+							can_move=true
+						end
+					end
+				end
+				if !can_move
+					@output_content = get_string("There is nothing in that direction #{direction}","red") 
 				end
 			end
 		end
-		if !can_move
-			@output_content = get_string("There is nothing in that direction","red") 
-		end
 	end
+
 
 	def build_map(json)
 		file = File.read(json)
@@ -158,29 +143,22 @@ class Main
 		end
 	end
 
-	def room_frame
-		box = TTY::Box.frame(
+	def print_frames
+		clear
+		room_box = TTY::Box.frame(
 			width: 50, 
 			height: 10,  
 			border: :thick) do
 			@room_content
 		end
-		print box
-	end
-
-	def output_frame
-		box = TTY::Box.frame(
+		out_box = TTY::Box.frame(
 			width: 50, 
 			height: 3,  
 			border: :thick, 
 			style: { border: { fg: :yellow } } ) do
 			@output_content
 		end
-		print box
-	end
-
-	def inv_frame
-		box = TTY::Box.frame(
+		inv_box = TTY::Box.frame(
 			width: 50, 
 			height: 3,  
 			border: :thick, 
@@ -188,7 +166,7 @@ class Main
 			style: { border: { fg: :green } } ) do
 			@inv_content
 		end
-		print box
+		print room_box,out_box,inv_box
 	end
 
 	def grab(params,container)
@@ -216,20 +194,6 @@ class Main
 			@output_content = get_string("There is no #{item}","red") if !found
 		end
 	end
-
-
-	# def drop(item,container)
- # 		@inventory.contents.each do |valid_item| 
-	#  		if item == valid_item.name	
-	# 			if container.add_item(valid_item)
-	# 				@inventory.remove_item(valid_item)
-	# 				@output_content = get_string("#{@player.name} dropped the #{item}","green")
-	# 			else
-	# 				@output_content = get_string("There is no room on the floor for #{item}","red")
-	# 			end
-	# 		end
-	# 	end
-	# end
 
 	def drop (params,container)
 		if @inventory.contents.empty?
