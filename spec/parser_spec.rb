@@ -1,6 +1,6 @@
 describe Parser do
 
-	describe ".call" do
+  describe ".call" do
     subject {Parser.new}
     context "given a valid command string" do
       let(:input) {"go north"}
@@ -20,5 +20,5 @@ describe Parser do
         expect(subject.call(input)).to eq(true)
       end
     end
-	end
+  end
 end

@@ -1,5 +1,5 @@
 describe Main do
-	describe ".initalize" do
+  describe ".initalize" do
     subject {Main.new}
     context "map shouldn't be empty on start" do
       it "returns true" do
@@ -45,5 +45,5 @@ describe Main do
         end
       end
     end
-	end
+  end
 end

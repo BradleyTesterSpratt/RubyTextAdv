@@ -50,6 +50,12 @@
           "direction": "south",
           "locked" : false
         }
+      ],
+      "items": [
+        {
+          "name": "key",
+          "weight": 1
+        }
       ]
     },
     {
