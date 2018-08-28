@@ -12,8 +12,8 @@ class Room
 
   attr_reader :name, :description, :long_description, :neighbors, :floor
 
-  def add_neighbor(room, direction)
-    neighbors << [room,direction]
+  def add_neighbor(room, direction, door=nil)
+    neighbors << [room,direction,door]
   end
 
   def fill(item)

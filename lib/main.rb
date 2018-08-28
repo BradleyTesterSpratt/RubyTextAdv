@@ -9,40 +9,35 @@ require 'tty-box'
 
 class Main
   def initialize
-    @map = []
     build_map(Constants::LevelOne)
-    @inv_content= ""
-    @room_content = ""
-    @output_content = ""
-    @parser=Parser.new
+    @inv_content = ''
+    @room_content = ''
+    @output_content = ''
+    @parser = Parser.new
+    @previous_location= []
+    @player = ''
   end
 
-  attr_reader :map
+  attr_reader :map, :output_content
+
+  attr_writer :player
 
   def play
     inital_setup
     play=true
     while play
-      @inv_content= @inventory.contents.empty? ? get_string("Empty","green") : get_string(@inventory.display_contents.join(', ').to_s,"green")
+      @inv_content= @inventory.contents.empty? ? get_string('Empty','green') : get_string(@inventory.display_contents.join(', ').to_s,"green")
       print_frames
-      @parser.call(get_input("Enter Command : ","yellow"))
+      @parser.call(get_input('Enter Command : ','yellow'))
       commands, params = @parser.retrieve
       case 
         when commands[0] == "go" then move(commands[1])
-        when commands[0] == "look" 
-          case
-            when commands[1] == "around" then look_around
-            #when commands[1] == "at" then look_at
-            else look
-          end
-        when commands[0] == "quit"
-          print get_string('type "yes" to quit: ',"yellow")
-          if (gets.chomp.downcase == "yes")
-            play=false
-          end
+        when commands[0] == "look" then look(commands[1])
+        when commands[0] == "inspect" then look_at
         when commands[0] == "help" then help
         when commands[0] == "grab" then grab(params,@current_location.floor)
         when commands[0] == "drop" then drop(params,@current_location.floor)
+        when commands[0] == "quit" then play = quit
         else @output_content = get_string("please enter a valid command","red")
       end
     end
@@ -64,25 +59,42 @@ class Main
   def inital_setup
     help
     print_frames
+    set_location(map[0])
     print get_string("Enter your name : ","yellow")
     @player=Player.new(gets.chomp)
     @inventory = @player.bag
-    @current_location=map[0]
-    @previous_location= []
     print_frames
-    look
+    look_room
   end
 
-  def look
+  def quit
+    print get_string('type "yes" to quit: ',"yellow")
+    false if (gets.chomp.downcase == "yes")
+  end
+
+  def help
+    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
+  end
+
+  def look(command)
+    case
+      when command == "around" then look_around
+      #when command == "at" then look_at
+      else look_room
+    end
+  end
+
+  def look_at
+    #check params against floor and inv for valid item
+    #give that item's details.
+  end
+
+  def look_room
     @room_content = @current_location.description + "\n"
     @current_location.neighbors.each do |neighbor|  
       #add exit description to json and use that
       @room_content = @room_content + "There is an exit to the #{get_string(neighbor[1],"blue")}\n"
     end
-  end
-
-  def help
-    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
   end
 
   def look_around
@@ -100,7 +112,10 @@ class Main
           if !@previous_location.empty?
             @current_location = @previous_location.pop
             @output_content = get_string("#{@player.name} returned to #{@current_location.name}","green")
-            look
+            look_room
+          else
+            @output_content = get_string('#There are no previous locations for {@player.name} to return to','red')
+            look_room
           end
       when direction.nil? then 
         @output_content = get_string("You need to give a direction","red")
@@ -110,9 +125,8 @@ class Main
         if neighbor[1].downcase == direction
           @map.each do |room|
             if room.name == neighbor[0]
-              @previous_location << @current_location
-              @room_content = @current_location = room
-              look
+              set_location(room)
+              look_room
               @output_content = get_string("#{@player.name} travelled #{direction}","green")
               can_move=true
             end
@@ -125,15 +139,22 @@ class Main
     end
   end
 
+  def set_location(location)
+    @previous_location << @current_location if !@current_location.nil?
+    @current_location = location
+  end
+
 
   def build_map(json)
+    @map = []
+
     file = File.read(json)
     level_data = JSON.parse(file)
 
     level_data['Room'].each do |ent|
       room = Room.new(ent['name'], ent['desc'], ent['long_desc'])
       ent['neighbors'].each do |neighbor|
-        room.add_neighbor(neighbor['name'], neighbor['direction'])
+        room.add_neighbor(neighbor['name'], neighbor['direction'], neighbor['door'])
       end
       if !ent['items'].nil?
         ent['items'].each do |item|
@@ -141,7 +162,7 @@ class Main
         end
       end
       @map << room
-    end
+    end 
   end
 
   def print_frames
