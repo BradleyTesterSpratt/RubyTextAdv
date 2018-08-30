@@ -15,12 +15,9 @@ class Main
     @output_content = ''
     @parser = Parser.new
     @previous_location= []
-    @player = ''
   end
 
-  attr_reader :map, :output_content
-
-  attr_writer :player
+  attr_reader :map, :output_content, :current_location, :player, :previous_location
 
   def play
     inital_setup
@@ -38,6 +35,7 @@ class Main
         when commands[0] == "grab" then grab(params,@current_location.floor)
         when commands[0] == "drop" then drop(params,@current_location.floor)
         when commands[0] == "quit" then play = quit
+        when commands[0] == "use" then use(params)
         else @output_content = get_string("please enter a valid command","red")
       end
     end
@@ -61,10 +59,14 @@ class Main
     print_frames
     set_location(map[0])
     print get_string("Enter your name : ","yellow")
-    @player=Player.new(gets.chomp)
-    @inventory = @player.bag
+    get_player(gets.chomp)
     print_frames
     look_room
+  end
+
+  def get_player(input)
+    @player=Player.new(input)
+    @inventory = @player.bag
   end
 
   def quit
@@ -92,8 +94,7 @@ class Main
   def look_room
     @room_content = @current_location.description + "\n"
     @current_location.neighbors.each do |neighbor|  
-      #add exit description to json and use that
-      @room_content = @room_content + "There is an exit to the #{get_string(neighbor[1],"blue")}\n"
+      @room_content = @room_content + "There is an exit to the #{get_string(neighbor[:direction],"blue")}\n"
     end
   end
 
@@ -120,22 +121,30 @@ class Main
       when direction.nil? then 
         @output_content = get_string("You need to give a direction","red")
       when !direction.nil? then
-        can_move=false
+        can_move = false
+        locked = false
         @current_location.neighbors.each do |neighbor|
-        if neighbor[1].downcase == direction
-          @map.each do |room|
-            if room.name == neighbor[0]
-              set_location(room)
-              look_room
-              @output_content = get_string("#{@player.name} travelled #{direction}","green")
-              can_move=true
+          if neighbor[:direction].downcase == direction
+            @map.each do |room|
+              if room.name == neighbor[:name]
+                if !neighbor[:door].nil?
+                  @locked_door = neighbor[:door]
+                  locked = true 
+                else
+                  set_location(room)
+                  look_room
+                  @output_content = get_string("#{@player.name} travelled #{direction}","green")
+                  can_move=true
+                end
+              end
             end
           end
+          if !can_move && !locked
+            @output_content = get_string("There is nothing in that direction #{direction}","red") 
+          elsif locked
+            @output_content = get_string("#{direction} is blocked by #{@locked_door}","red") 
+          end
         end
-        if !can_move
-          @output_content = get_string("There is nothing in that direction #{direction}","red") 
-        end
-      end
     end
   end
 
@@ -143,7 +152,6 @@ class Main
     @previous_location << @current_location if !@current_location.nil?
     @current_location = location
   end
-
 
   def build_map(json)
     @map = []
@@ -158,7 +166,7 @@ class Main
       end
       if !ent['items'].nil?
         ent['items'].each do |item|
-          room.fill(Item.new(item["name"],item["weight"]))
+          room.fill(Item.new(item['name'],item['weight'],item['desc'],item['use_with']))
         end
       end
       @map << room
@@ -240,6 +248,27 @@ class Main
         end
       end
       @output_content = get_string("#{@player.name} does not have #{item}","red") if !found 
+    end
+  end
+
+  def use (params)
+    #@interactive_objects = inventory + floor + doors
+    params = params.join(' ').chomp.split(' on ')
+    @inventory.contents.each do |item|
+      if params[0] == item.name && params[1] == item.use_with
+        #@interactive_objects.each do |object|
+          # if object == item.use_with
+          #   do stuff
+
+        if item.name.include? 'key'
+          @current_location.neighbors.each do |neighbor|
+            if neighbor[:door]==params[1]
+              @output_content = get_string("#{neighbor[:door]} is unlocked","green")
+              @current_location.unlock_neighbor(neighbor)
+            end
+          end
+        end
+      end
     end
   end
 
