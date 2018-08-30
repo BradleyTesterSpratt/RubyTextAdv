@@ -13,12 +13,17 @@
           "name": "East Hall",
           "direction": "east",
           "door" : "first door"
+        },
+        {
+          "name": "West Hall",
+          "direction": "west",
+          "door" : "second door"
         }
       ],
       "items": [
         {
           "name": "round key",
-          "inspect_desc": "it has a key ring that says \"first door\" on it",
+          "desc": "it has a key ring that says \"first door\" on it",
           "weight": 1,
           "use_with": "first door"
         },
