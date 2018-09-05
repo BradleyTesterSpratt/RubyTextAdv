@@ -4,6 +4,8 @@ describe Main do
     subject.build_map(Constants::TestMap)
     subject.set_location(subject.map[0])
     subject.get_player('player')
+    @player_bag = subject.player.bag
+    @floor = subject.current_location.floor
   end
   describe '.initalize' do
     context "map shouldn't be empty on start" do
@@ -50,6 +52,33 @@ describe Main do
         end
       end
     end
+    context 'no item lacks a name' do
+      it 'returns true' do
+        subject.map.each do |room|
+          room.floor.contents.each do |item|
+            expect(item.name.nil?).to be(false)
+          end
+        end
+      end
+    end
+    context 'no item lacks a description' do
+      it 'returns true' do
+        subject.map.each do |room|
+          room.floor.contents.each do |item|
+            expect(item.desc.nil?).to be(false)
+          end
+        end
+      end
+    end
+    context 'no item lacks a weight' do
+      it 'returns true' do
+        subject.map.each do |room|
+          room.floor.contents.each do |item|
+            expect(item.weight.nil?).to be(false)
+          end
+        end
+      end
+    end
   end
   describe '.move' do
     context 'given a direction with no exit' do
@@ -82,16 +111,6 @@ describe Main do
         expect(subject.output_content).to include("\e[31m")
       end
     end
-    context 'when moving in a direction with a unlocked door' do
-      let(:input) { 'east' }
-      let(:params) { %w[round key on first door] }
-      it 'move should return success' do
-        subject.grab(%w[round key], subject.current_location.floor)
-        subject.use(params)
-        subject.move(input)
-        expect(subject.previous_location.last).not_to eq subject.current_location
-      end
-    end
     context 'when told to move back' do
       let(:input) { 'back' }
       it 'move should should succeed if there are one or more previous locations' do
@@ -111,32 +130,30 @@ describe Main do
   end
   describe 'item interaction' do
     let(:item) { Item.new('test item', 1) }
-    let(:player_bag) { subject.player.bag }
-    let(:floor) { subject.current_location.floor }
     describe '.grab' do
       context 'given a valid item to pick up' do
         let(:input) { %w[test item] }
         it 'should add the item to the player inventory' do
-          floor.add_item(item)
-          subject.grab(input, floor)
-          expect(floor.contents.include?(item)).to be false
-          expect(player_bag.contents.include?(item)).to be true
+          @floor.add_item(item)
+          subject.grab(input, @floor)
+          expect(@floor.contents.include?(item)).to be false
+          expect(@player_bag.contents.include?(item)).to be true
         end
       end
       context 'given an invalid item to pick up' do
         let(:input) { %w[test item] }
         it 'should not add the item to the player inventory' do
-          subject.grab(input, floor)
-          expect(floor.contents.include?(item)).to be false
-          expect(player_bag.contents.include?(item)).to be false
+          subject.grab(input, @floor)
+          expect(@floor.contents.include?(item)).to be false
+          expect(@player_bag.contents.include?(item)).to be false
         end
       end
       context 'given no input' do
         let(:input) { [] }
         it 'should request input from user' do
           allow($stdout).to receive(:write)
-          expect(ARGF).to receive(:gets).and_return('foo')
-          subject.grab(input, subject.current_location.floor)
+          expect(ARGF).to receive(:gets).and_return('')
+          subject.grab(input, @floor)
         end
       end
     end
@@ -144,32 +161,119 @@ describe Main do
       context 'when requesting to drop an item with an empty inventory' do
         let(:input) { %w[test item] }
         it 'should alert the player there is nothing to drop' do
-          subject.drop(input, floor)
+          subject.drop(input, @floor)
           expect(subject.output_content).to include("\e[31m")
         end
       end
       context "when requesting to drop an item that isn't in the inventory and inventory is not empty" do
         let(:input) { %w[test item] }
         it 'it should not drop the item' do
-          subject.drop(input, floor)
-          expect(floor.contents.include?(item)).to be false
-          expect(player_bag.contents.include?(item)).to be false
+          subject.drop(input, @floor)
+          expect(@floor.contents.include?(item)).to be false
+          expect(@player_bag.contents.include?(item)).to be false
         end
       end
       context 'when requesting to drop an item that is in the inventory' do
         let(:input) { %w[test item] }
         it 'it should drop the item' do
-          player_bag.add_item(item)
-          subject.drop(input, floor)
-          expect(floor.contents.include?(item)).to be true
-          expect(player_bag.contents.include?(item)).to be false
+          @player_bag.add_item(item)
+          subject.drop(input, @floor)
+          expect(@floor.contents.include?(item)).to be true
+          expect(@player_bag.contents.include?(item)).to be false
         end
       end
     end
   end
   describe '.look' do
+    context 'when look is input without any parameters' do
+      let(:command) {nil}
+      let(:params) {[]}
+      it 'will ask for further input' do
+        allow($stdout).to receive(:write)
+        expect(ARGF).to receive(:gets).and_return('foo')
+        subject.look(command,params)
+      end
+    end
+    context 'when look is input with "at the room"' do
+      let(:command) { 'at' }
+      let(:params) { ['the', 'room'] }
+      it 'will call look_room' do
+        expect(subject).to receive(:look_room)
+        subject.look(command,params)
+      end
+    end
+    context 'when look is input with "at" and followed by an item' do
+      let(:command) { 'at' }
+      let(:params) { ['test', 'item'] }
+      it 'will call look_at' do
+        expect(subject).to receive(:look_at)
+        subject.look(command,params)
+      end
+    end
+  end
+  describe '.look_at' do
+    let(:item) { Item.new('test item', 1) }
+    context 'when looking at an item that is not visible to the player' do
+      let(:input) { ['test', 'item'] }
+      it 'will inform the player it is not possible' do
+        subject.look_at(input)
+        expect(subject.output_content).to include("\e[31m")
+      end
+    end
+    context 'when looking at an item the the player is holding' do
+      let(:input) { ['test', 'item' ] }
+      it "will find the item's description" do
+        @player_bag.add_item(item)
+        subject.look_at(input)
+        expect(subject.output_content).to include("\e[32m")      
+      end
+    end
+    context 'when looking at an item that is in the same room as the player' do
+      let(:input) { ['test', 'item' ] }
+      it "will find the item's description" do
+        @floor.add_item(item)
+        subject.look_at(input)
+        expect(subject.output_content).to include("\e[32m")      
+      end
+    end
   end
 
   describe '.use' do
+    let(:item) { Item.new('test object', 1, 'combine', 'it is a test object', 'test block') }
+    let(:item2) { Item.new('test block', 1, 'combine', 'it is a test block', 'test object') }
+    context 'when trying to use an item on another object which it cannot interactive with' do
+      it 'will fail' do
+        @player_bag.add_item(item)
+        subject.use(['test', 'object', 'on', 'big', 'rock']) 
+        expect(subject.output_content).to include("\e[31m")
+      end
+    end
+    context 'when unlocking a door and then attempting to move through it' do
+      let(:input) { 'east' }
+      let(:params) { %w[round key on first door] }
+      it 'move should return success' do
+        subject.grab(%w[round key], @floor)
+        subject.use(params)
+        subject.move(input)
+        expect(subject.previous_location.last).not_to eq subject.current_location
+      end
+    end
+    context 'when attempting to use an item not held by the player' do
+      it 'will fail' do
+        subject.use(['test', 'item', 'on', 'big', 'rock']) 
+        expect(subject.output_content).to include("\e[31m")
+      end
+    end
+    context 'when using 2 held items on eachother that are comaptible' do
+      it 'should add to the players inventory if they have enough capacity' do
+        @player_bag.add_item(item)
+        @player_bag.add_item(item2)
+        subject.use(['test', 'object', 'on', 'test', 'block'])
+        expect(@player_bag.contents.include?(item)).to be false
+        expect(@player_bag.contents.include?(item2)).to be false
+        expect(@player_bag.contents).to include?('name' => 'test success') 
+      end
+    end
+
   end
 end

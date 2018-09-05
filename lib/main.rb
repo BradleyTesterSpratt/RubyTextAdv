@@ -9,7 +9,6 @@ require 'tty-box'
 
 class Main
   def initialize
-    build_map(Constants::LevelOne)
     @inv_content = ''
     @room_content = ''
     @output_content = ''
@@ -25,12 +24,10 @@ class Main
     while play
       @inv_content= @inventory.contents.empty? ? get_string('Empty','green') : get_string(@inventory.display_contents.join(', ').to_s,"green")
       print_frames
-      @parser.call(get_input('Enter Command : ','yellow'))
-      commands, params = @parser.retrieve
+      commands, params = @parser.call(get_input('Enter Command : ','yellow'))
       case 
         when commands[0] == "go" then move(commands[1])
-        when commands[0] == "look" then look(commands[1])
-        when commands[0] == "inspect" then look_at
+        when commands[0] == "look" then look(commands[1],params)
         when commands[0] == "help" then help
         when commands[0] == "grab" then grab(params,@current_location.floor)
         when commands[0] == "drop" then drop(params,@current_location.floor)
@@ -55,6 +52,7 @@ class Main
   end
 
   def inital_setup
+    build_map(Constants::LevelOne)
     help
     print_frames
     set_location(map[0])
@@ -78,17 +76,26 @@ class Main
     @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
   end
 
-  def look(command)
+  def look(command,params)
     case
       when command == "around" then look_around
-      #when command == "at" then look_at
-      else look_room
+      when command == "at" then look_at(params)
+      when command.nil? 
+        print get_string("Look at what?: ","yellow")
+        item=gets.chomp
     end
   end
 
-  def look_at
-    #check params against floor and inv for valid item
-    #give that item's details.
+  def look_at(params)
+    params = params.join(' ')
+    if params == 'the room' then look_room
+    else
+      item_list = @inventory.contents + @current_location.floor.contents
+      @output_content = get_string("There is no #{params}", 'red')
+      item_list.each do |item|
+        @output_content = get_string("#{item.desc} and it weighs #{item.weight}", 'green') if item.name == params
+      end
+    end
   end
 
   def look_room
@@ -166,11 +173,12 @@ class Main
       end
       if !ent['items'].nil?
         ent['items'].each do |item|
-          room.fill(Item.new(item['name'],item['weight'],item['desc'],item['use_with']))
+          room.fill(Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']))
         end
       end
       @map << room
     end 
+    @combined_items = JSON.parse(File.read(Constants::CombinedItems))
   end
 
   def print_frames
@@ -183,14 +191,14 @@ class Main
     end
     out_box = TTY::Box.frame(
       width: 50, 
-      height: 3,  
+      height: 4,  
       border: :thick, 
       style: { border: { fg: :yellow } } ) do
       @output_content
     end
     inv_box = TTY::Box.frame(
       width: 50, 
-      height: 3,  
+      height: 4,  
       border: :thick, 
       title: {top_left: "INVENTORY"}, 
       style: { border: { fg: :green } } ) do
@@ -252,24 +260,53 @@ class Main
   end
 
   def use (params)
-    #@interactive_objects = inventory + floor + doors
     params = params.join(' ').chomp.split(' on ')
-    @inventory.contents.each do |item|
-      if params[0] == item.name && params[1] == item.use_with
-        #@interactive_objects.each do |object|
-          # if object == item.use_with
-          #   do stuff
+    if not @inventory.contents.any? { |item| item.name == params[0] }
+      return @output_content = get_string("You are not holding a #{params[0]}", 'red') 
+    end
+    item = @inventory.contents.find {|item| item.name == params[0] && item.use_with == params[1] }
+    item.nil? ? @output_content = get_string("#{params[0]} cannot be used like that", 'red') : switch_use(params[1], item) 
+    #  @inventory.contents.each do |item|
+    #     params[0] == item.name && params[1] == item.use_with ? switch_use(params[1], item) : @output_content = get_string("#{item.name} cannot be used like that", 'red')
+    # end
+  end
 
-        if item.name.include? 'key'
-          @current_location.neighbors.each do |neighbor|
-            if neighbor[:door]==params[1]
-              @output_content = get_string("#{neighbor[:door]} is unlocked","green")
-              @current_location.unlock_neighbor(neighbor)
-            end
-          end
-        end
+  def switch_use(params, item)
+    case
+      when item.type == 'key' then use_key(params)
+      when item.type == 'combine' then use_combine(item, params)
+    end
+  end
+
+  def use_key(door)
+    @current_location.neighbors.each do |neighbor|
+      if neighbor[:door] == door
+        @output_content = get_string("#{neighbor[:door]} is unlocked", 'green')
+        @current_location.unlock_neighbor(neighbor)
       end
     end
+  end
+
+  def use_combine(item, item_name)
+    @inventory.contents.each do |other_item|
+      combine_item(item,other_item) if item_name == other_item.name
+    end
+    @current_location.floor.contents.each do |other_item|
+      combine_item(item, other_item, false) if item_name == other_item.name
+    end
+  end
+
+  def combine_item(item_one, item_two, held=true)
+    @inventory.remove_item(item_one)
+    held ? @inventory.remove_item(item_two) : @current_location.floor.remove_item(item_two)
+    p @combined_items
+    p @combined_items['items'].find {|item| item['req1']== item_one.name && item['req2'] == item_two.name  }
+    item = @combined_items['items'].find {|item| item['req1']== item_one.name && item['req2'] == item_two.name  }
+    combined_item = Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']) 
+     if not @inventory.add_item(combined_item)
+      @current_location.floor.add_item(combined_item)
+      #error message
+    end 
   end
 
   def clear

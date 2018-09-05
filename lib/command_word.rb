@@ -1,15 +1,11 @@
 class CommandWord
   def initialize
-    @valid_commands = ["go", "north", "south", "east", "west", "quit", "look", "around", "back", "help", "grab", "drop", "use"] #, "at", "on" 
+    @valid_commands = ["go", "north", "south", "east", "west", "quit", "look", "around", "back", "help", "grab", "drop", "use", "at"] #, "on" 
   end
 
   attr_reader :valid_commands
 
-  def call(input_string)
-    bool = false
-    valid_commands.each do |command| 
-      bool = true if command.to_s.downcase == input_string.to_s.downcase
-    end
-    bool
+  def call(input)
+      valid_commands.include?(input.to_s.downcase)
   end
 end

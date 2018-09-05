@@ -27,9 +27,7 @@ class ItemHolder
   end
 
   def check_capacity(weight)
-    if weight+@current_weight <= @capacity
-      return true
-    end 
+    weight + @current_weight <= @capacity
   end
 
   def display_contents

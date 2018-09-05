@@ -1,26 +1,18 @@
 require_relative 'command_word'
 
 class Parser
-  def initialize 
-    @word_list = []
-  end
-
   def call(string)
-    @commands = []
-    @params = []
-    @word_list = string.split(" ").uniq
-    true if CommandWord.new.call(@word_list[0].to_s)
-  end
 
-  def retrieve
-    @word_list.each do |word|
-      if CommandWord.new.call(word.to_s)
-        @commands << word
-      else
-        @params<< word
-      end 
-    end
-    [@commands,@params]
-  end
+    #return hash commands => [], params => use .each_with_object
 
+    commands = []
+    params = []
+    string.downcase.split(" ").each { |word| CommandWord.new.call(word.to_s) ? commands << word : params << word }
+    return [commands.uniq,params]
+
+    # parsed_words = Hash.new ( { commands: [], params: [] } )
+    # string.downcase.split(' ').uniq.each_with_object({}) do |word|
+    #   CommandWord.new.call(word.to_s) ? parsed_words[:commands] < word : parsed_words[:params] < word
+    # end
+  end
 end

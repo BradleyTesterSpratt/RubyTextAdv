@@ -25,12 +25,14 @@
           "name": "round key",
           "desc": "it has a key ring that says \"first door\" on it",
           "weight": 1,
-          "use_with": "first door"
+          "use_with": "first door",
+          "type": "key"
         },
         {
           "name": "fork",
           "weight": 2,
-          "use_with": "plug socket"
+          "use_with": "plug socket",
+          "type": "combine"
         },
         {
           "name": "small rock",
@@ -63,7 +65,8 @@
       "items": [
         {
           "name": "plug socket",
-          "weight": 30
+          "weight": 30,
+          "type": "combine"
         }
       ]
     },
@@ -75,6 +78,20 @@
         {
           "name": "Entrance",
           "direction": "east"
+        }
+      ],
+      "items": [
+        {
+          "name": "test object",
+          "weight": 1,
+          "use_with": "test block",
+          "type": "combine"
+        },
+        {
+          "name": "test block",
+          "weight": 1,
+          "use_with": "test object",
+          "type": "combine"
         }
       ]
     },

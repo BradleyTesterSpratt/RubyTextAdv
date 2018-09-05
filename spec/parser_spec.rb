@@ -4,11 +4,11 @@ describe Parser do
     context 'given a valid command string' do
       let(:input) { 'go north' }
       it 'returns true' do
-        expect(subject.call(input)).to eq(true)
+        expect(subject.call(input)).to eq()
       end
     end
     context 'given a repeated command' do
-      let(:input) { 'go go north' }
+      let(:input) { 'grab fork' }
       it 'ignores repetition and returns true' do
         expect(subject.call(input)).to eq(true)
       end
