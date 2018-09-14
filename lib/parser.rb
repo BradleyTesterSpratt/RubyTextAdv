@@ -8,7 +8,7 @@ class Parser
     commands = []
     params = []
     string.downcase.split(" ").each { |word| CommandWord.new.call(word.to_s) ? commands << word : params << word }
-    return [commands.uniq,params]
+    commands.empty? ? nil : [commands.uniq,params]
 
     # parsed_words = Hash.new ( { commands: [], params: [] } )
     # string.downcase.split(' ').uniq.each_with_object({}) do |word|

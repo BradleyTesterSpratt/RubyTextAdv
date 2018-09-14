@@ -1,4 +1,5 @@
 require_relative 'item'
+require_relative 'door_switch'
 
 class ItemHolder
   def initialize(capacity)

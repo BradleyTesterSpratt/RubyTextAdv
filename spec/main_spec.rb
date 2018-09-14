@@ -265,13 +265,48 @@ describe Main do
       end
     end
     context 'when using 2 held items on eachother that are comaptible' do
-      it 'should add to the players inventory if they have enough capacity' do
+      it 'will add to the players inventory if they have enough capacity' do
         @player_bag.add_item(item)
         @player_bag.add_item(item2)
         subject.use(['test', 'object', 'on', 'test', 'block'])
         expect(@player_bag.contents.include?(item)).to be false
         expect(@player_bag.contents.include?(item2)).to be false
-        expect(@player_bag.contents).to include?('name' => 'test success') 
+        expect(@player_bag.contents.any? do |item| 
+          true if item.name == 'test success'
+        end).to be true
+      end
+    end
+    context 'when using a held item on a comaptible item on the floor' do
+      it 'will add to the players inventory if they have enough capacity' do
+        @player_bag.add_item(item)
+        @floor.add_item(item2)
+        subject.use(['test', 'object', 'on', 'test', 'block'])
+        expect(@player_bag.contents.include?(item)).to be false
+        expect(@floor.contents.include?(item2)).to be false
+        expect(@player_bag.contents.any? do |item| 
+          true if item.name == 'test success'
+        end).to be true
+      end
+    end
+    context 'when combining an item that is too heavy for the player' do
+      let(:item) { Item.new('heavy test item', 1, 'combine', 'it is a heavy test item', 'test block') }
+      it 'will add to the floor' do
+        @player_bag.add_item(item)
+        @floor.add_item(item2)
+        subject.use(['heavy','test', 'item', 'on', 'test', 'block'])
+        expect(@player_bag.contents.include?(item)).to be false
+        expect(@floor.contents.include?(item2)).to be false
+        expect(@floor.contents.any? do |item| 
+          true if item.name == 'heavy test success'
+        end).to be true
+      end
+    end
+    context 'when using 2 held items that are both on the floor that are comaptible' do
+      it 'will fail' do
+        @floor.add_item(item)
+        @floor.add_item(item2)
+        subject.use(['test', 'object', 'on', 'test', 'block'])
+        expect(subject.output_content).to include("\e[31m")
       end
     end
 

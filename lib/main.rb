@@ -25,7 +25,8 @@ class Main
       @inv_content= @inventory.contents.empty? ? get_string('Empty','green') : get_string(@inventory.display_contents.join(', ').to_s,"green")
       print_frames
       commands, params = @parser.call(get_input('Enter Command : ','yellow'))
-      case 
+      case
+        when commands.nil? then @output_content = get_string("please enter a valid command","red")
         when commands[0] == "go" then move(commands[1])
         when commands[0] == "look" then look(commands[1],params)
         when commands[0] == "help" then help
@@ -33,7 +34,6 @@ class Main
         when commands[0] == "drop" then drop(params,@current_location.floor)
         when commands[0] == "quit" then play = quit
         when commands[0] == "use" then use(params)
-        else @output_content = get_string("please enter a valid command","red")
       end
     end
     clear
@@ -52,7 +52,7 @@ class Main
   end
 
   def inital_setup
-    build_map(Constants::LevelOne)
+    build_map(Constants::TestMap)
     help
     print_frames
     set_location(map[0])
@@ -178,7 +178,13 @@ class Main
       end
       @map << room
     end 
-    @combined_items = JSON.parse(File.read(Constants::CombinedItems))
+    @combined_items = build_combined_items(level_data, Constants::CombinedItems)
+  end
+
+  def build_combined_items(level_data,combined_items)
+    items = JSON.parse(File.read(combined_items))
+    items = items.merge(level_data){|k,o,v| o + v}
+    items = items.select{|k, _| k == "items"}
   end
 
   def print_frames
@@ -261,20 +267,29 @@ class Main
 
   def use (params)
     params = params.join(' ').chomp.split(' on ')
-    if not @inventory.contents.any? { |item| item.name == params[0] }
-      return @output_content = get_string("You are not holding a #{params[0]}", 'red') 
+    if item = @current_location.floor.contents.find{ |item| item.name == params[0] && item.type == 'switch'}
+      return switch_use(params, item) 
     end
-    item = @inventory.contents.find {|item| item.name == params[0] && item.use_with == params[1] }
+    return @output_content = get_string("You are not holding a #{params[0]}", 'red') if not @inventory.contents.any? { |item| item.name == params[0] }
+    item = @inventory.contents.find {|item| item.name == params[0] && item.use_with.include?(params[1]) }
     item.nil? ? @output_content = get_string("#{params[0]} cannot be used like that", 'red') : switch_use(params[1], item) 
-    #  @inventory.contents.each do |item|
-    #     params[0] == item.name && params[1] == item.use_with ? switch_use(params[1], item) : @output_content = get_string("#{item.name} cannot be used like that", 'red')
-    # end
   end
+
+
+
+  #   if not @inventory.contents.any? { |item| item.name == params[0] }
+  #     return @output_content = get_string("You are not holding a #{params[0]}", 'red') 
+  #   end
+  #   item = @inventory.contents.find {|item| item.name == params[0] && item.use_with.include?(params[1]) }
+  #   item.nil? ? @output_content = get_string("#{params[0]} cannot be used like that", 'red') : switch_use(params[1], item) 
+
+  # end
 
   def switch_use(params, item)
     case
       when item.type == 'key' then use_key(params)
       when item.type == 'combine' then use_combine(item, params)
+      when item.type == 'switch' then use_door_switch(item)
     end
   end
 
@@ -299,14 +314,18 @@ class Main
   def combine_item(item_one, item_two, held=true)
     @inventory.remove_item(item_one)
     held ? @inventory.remove_item(item_two) : @current_location.floor.remove_item(item_two)
-    p @combined_items
-    p @combined_items['items'].find {|item| item['req1']== item_one.name && item['req2'] == item_two.name  }
     item = @combined_items['items'].find {|item| item['req1']== item_one.name && item['req2'] == item_two.name  }
-    combined_item = Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']) 
-     if not @inventory.add_item(combined_item)
-      @current_location.floor.add_item(combined_item)
-      #error message
-    end 
+    if item['type'] == 'switch' 
+      combined_item = DoorSwitch.new(item['name'],item['weight'],item['new_neighbor']['name'],item['new_neighbor']['direction'],item['desc']) 
+    else 
+      combined_item = Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']) 
+    end
+    @current_location.floor.add_item(combined_item) if not @inventory.add_item(combined_item) 
+    @output_content = get_string("#{item_one.name} and #{item_two.name} has become #{combined_item.name}", "green")
+  end
+
+  def use_door_switch(item)
+    @current_location.add_neighbor(item.neighbor_name,item.neighbor_direction)
   end
 
   def clear
@@ -319,3 +338,5 @@ end
 if __FILE__ == $0
   Main.new.play
 end
+
+#when it creates a door switch in code, generates it all wrong
