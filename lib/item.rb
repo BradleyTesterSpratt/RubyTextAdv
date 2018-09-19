@@ -1,13 +1,12 @@
 class Item
   
-  def initialize(name, weight, type = 'static', desc = nil, use_with = nil)
+  def initialize(name, weight, desc = nil)
     @name = name
     desc.nil? ? @desc = "it is a #{name}" : @desc = desc
-    type.nil? ? @type = 'static' : @type = type
     @weight = weight
-    @use_with = use_with
+    @type = 'static'
   end
 
-  attr_reader :name, :weight, :desc, :use_with, :type
+  attr_reader :name, :weight, :desc, :type
 
 end

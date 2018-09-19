@@ -4,8 +4,7 @@
       "name": "you're dead",
       "weight": 0,
       "type": "combine",
-      "req1": "fork",
-      "req2": "plug socket"
+      "requirements": "fork, plug socket"
     }
   ]
 }

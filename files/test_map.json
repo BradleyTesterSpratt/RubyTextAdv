@@ -25,7 +25,14 @@
           "name": "round key",
           "desc": "it has a key ring that says \"first door\" on it",
           "weight": 1,
-          "use_with": "first door",
+          "door": "first door",
+          "type": "key"
+        },
+        {
+          "name": "square key",
+          "desc": "it has a key ring that says \"back door\" on it",
+          "weight": 1,
+          "door": "back door",
           "type": "key"
         },
         {
@@ -36,7 +43,9 @@
         },
         {
           "name": "small rock",
-          "weight": 18
+          "weight": 18,
+          "use_with": "chisel",
+          "type": "combine"
         },
         {
           "name": "big rock",
@@ -71,6 +80,12 @@
         {
           "name": "three small holes",
           "weight": 30,
+          "type": "combine"
+        },
+        {
+          "name": "chisel",
+          "weight": 2,
+          "use_with": "small rock",
           "type": "combine"
         }
       ]
@@ -128,27 +143,29 @@
       "name": "test success",
       "weight": 2,
       "type": "combine",
-      "req1": "test object",
-      "req2": "test block"
+      "requirements": "test object, test block"
     },
     {
       "name": "heavy test success",
       "weight": 40,
       "type": "combine",
-      "req1": "heavy test item",
-      "req2": "test block"
+      "requirements": "heavy test item, test block"
     },
     {
       "name": "fork lever",
       "weight": 40,
       "type": "switch",
-      "req1": "fork",
-      "req2": "three small holes",
+      "requirements": "fork, three small holes",
       "new_neighbor": 
         {
           "name": "secret room",
           "direction": "north"
         }
+    },
+    {
+      "name": "flint",
+      "weight": 2,
+      "requirements": "chisel, small rock"
     }
   ]
 }

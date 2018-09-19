@@ -73,7 +73,7 @@ class Main
   end
 
   def help
-    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
+    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go south, go back\nlook at item, look at the room, look around\ngrab, drop, use, use item on item\nquit, help"
   end
 
   def look(command,params)
@@ -173,13 +173,23 @@ class Main
       end
       if !ent['items'].nil?
         ent['items'].each do |item|
-          room.fill(Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']))
+          room.fill(build_items(item))
         end
       end
       @map << room
     end 
     @combined_items = build_combined_items(level_data, Constants::CombinedItems)
   end
+
+  def build_items(item)
+    case
+      when item['type'] == 'key' then Key.new(item['name'],item['weight'],item['door'],item['desc'])
+      when item['type'] == 'combine' then CombinableItem.new(item['name'],item['weight'],item['use_with'],item['desc'])
+      when item['type'] == 'switch' then DoorSwitch.new(item['name'],item['weight'],item['new_neighbor']['name'],item['new_neighbor']['direction'],item['desc'])
+      else Item.new(item['name'],item['weight'],item['desc'])
+    end
+  end
+
 
   def build_combined_items(level_data,combined_items)
     items = JSON.parse(File.read(combined_items))
@@ -267,65 +277,83 @@ class Main
 
   def use (params)
     params = params.join(' ').chomp.split(' on ')
-    if item = @current_location.floor.contents.find{ |item| item.name == params[0] && item.type == 'switch'}
-      return switch_use(params, item) 
+    room_contents = @current_location.floor.contents + @inventory.contents 
+    item = room_contents.find{ |item| item.name == params[0] }
+    if (item.nil? || !item.type == 'switch')  
+      @output_content = get_string("You are not holding a #{params[0]}", 'red') 
+    else
+      switch_use(item,params[1])
     end
-    return @output_content = get_string("You are not holding a #{params[0]}", 'red') if not @inventory.contents.any? { |item| item.name == params[0] }
-    item = @inventory.contents.find {|item| item.name == params[0] && item.use_with.include?(params[1]) }
-    item.nil? ? @output_content = get_string("#{params[0]} cannot be used like that", 'red') : switch_use(params[1], item) 
   end
 
-
-
-  #   if not @inventory.contents.any? { |item| item.name == params[0] }
-  #     return @output_content = get_string("You are not holding a #{params[0]}", 'red') 
-  #   end
-  #   item = @inventory.contents.find {|item| item.name == params[0] && item.use_with.include?(params[1]) }
-  #   item.nil? ? @output_content = get_string("#{params[0]} cannot be used like that", 'red') : switch_use(params[1], item) 
-
-  # end
-
-  def switch_use(params, item)
+  def switch_use(item, other_item)
     case
-      when item.type == 'key' then use_key(params)
-      when item.type == 'combine' then use_combine(item, params)
+      when item.type == 'key' then 
+        if held?(item)
+          use_key(item, other_item)
+        else
+          @output_content = get_string("You are not holding #{item.name}","red")
+        end
+      when item.type == 'combine' then 
+        if held?(item)
+          use_combine(item, other_item)
+        else
+          @output_content = get_string("You are not holding #{item.name}","red")
+        end
       when item.type == 'switch' then use_door_switch(item)
+      else @output_content = get_string("You cannot use #{item.name} like that","red")
     end
   end
 
-  def use_key(door)
-    @current_location.neighbors.each do |neighbor|
-      if neighbor[:door] == door
-        @output_content = get_string("#{neighbor[:door]} is unlocked", 'green')
-        @current_location.unlock_neighbor(neighbor)
-      end
+  def use_key(key, door_name)
+    while door_name.nil?
+      door_name = get_input("use #{key.name} with which door?: ", 'yellow')
+    end
+    neighbor = @current_location.neighbors.find{ |neighbor| neighbor[:door] == door_name}
+    if neighbor.nil? 
+      @output_content = get_string("There isn't a #{door_name} to open", 'red')
+    elsif key.door == door_name
+      @output_content = get_string("#{neighbor[:door]} is unlocked", 'green')
+      @current_location.unlock_neighbor(neighbor)
+    else
+      @output_content = get_string("#{door_name} isn't unlocked with #{key.name}", 'red')
     end
   end
 
   def use_combine(item, item_name)
-    @inventory.contents.each do |other_item|
-      combine_item(item,other_item) if item_name == other_item.name
+    while item_name.nil?
+      item_name = get_input("use #{item.name} with which what?: ", 'yellow')
     end
-    @current_location.floor.contents.each do |other_item|
-      combine_item(item, other_item, false) if item_name == other_item.name
+    (@inventory.contents + @current_location.floor.contents).each do |other_item|
+      combine_item(item, other_item) if item_name == other_item.name
     end
   end
 
-  def combine_item(item_one, item_two, held=true)
-    @inventory.remove_item(item_one)
-    held ? @inventory.remove_item(item_two) : @current_location.floor.remove_item(item_two)
-    item = @combined_items['items'].find {|item| item['req1']== item_one.name && item['req2'] == item_two.name  }
-    if item['type'] == 'switch' 
-      combined_item = DoorSwitch.new(item['name'],item['weight'],item['new_neighbor']['name'],item['new_neighbor']['direction'],item['desc']) 
-    else 
-      combined_item = Item.new(item['name'],item['weight'],item['type'],item['desc'],item['use_with']) 
+  def combine_item(item_one, item_two)
+    item = @combined_items['items'].find {|item| item['requirements'].include?(item_one.name) && item['requirements'].include?(item_two.name) }
+    if item.nil?
+      @output_content = get_string("#{item_one.name} cannot be used with #{item_two.name}", "red")
+    else
+      @inventory.remove_item(item_one)
+      held?(item_two) ? @inventory.remove_item(item_two) : @current_location.floor.remove_item(item_two) 
+      combined_item = build_items(item)
+      @current_location.floor.add_item(combined_item) if not @inventory.add_item(combined_item) 
+      @output_content = get_string("#{item_one.name} and #{item_two.name} has become #{combined_item.name}", "green")
     end
-    @current_location.floor.add_item(combined_item) if not @inventory.add_item(combined_item) 
-    @output_content = get_string("#{item_one.name} and #{item_two.name} has become #{combined_item.name}", "green")
+  end
+
+  def held?(item)
+    @inventory.contents.include?(item)
   end
 
   def use_door_switch(item)
-    @current_location.add_neighbor(item.neighbor_name,item.neighbor_direction)
+    if item.active
+      @current_location.add_neighbor(item.neighbor_name,item.neighbor_direction)
+      item.use_switch
+      @output_content = get_string("The #{item.name} opened a hidden door opened to the #{item.neighbor_direction}", "green")
+    else
+      @output_content = get_string("The #{item.name} did nothing", "red")
+    end
   end
 
   def clear

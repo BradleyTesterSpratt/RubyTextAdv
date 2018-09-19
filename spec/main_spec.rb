@@ -239,8 +239,8 @@ describe Main do
   end
 
   describe '.use' do
-    let(:item) { Item.new('test object', 1, 'combine', 'it is a test object', 'test block') }
-    let(:item2) { Item.new('test block', 1, 'combine', 'it is a test block', 'test object') }
+    let(:item) { CombinableItem.new('test object', 1, 'test block', 'it is a test object') }
+    let(:item2) { CombinableItem.new('test block', 1, 'test object', 'it is a test block') }
     context 'when trying to use an item on another object which it cannot interactive with' do
       it 'will fail' do
         @player_bag.add_item(item)
@@ -264,23 +264,25 @@ describe Main do
         expect(subject.output_content).to include("\e[31m")
       end
     end
-    context 'when using 2 held items on eachother that are comaptible' do
+    context 'when using 2 held items on eachother that are compatible' do
+      let(:input) {['test', 'object', 'on', 'test', 'block']}
       it 'will add to the players inventory if they have enough capacity' do
         @player_bag.add_item(item)
         @player_bag.add_item(item2)
-        subject.use(['test', 'object', 'on', 'test', 'block'])
+        subject.use(input)
         expect(@player_bag.contents.include?(item)).to be false
         expect(@player_bag.contents.include?(item2)).to be false
         expect(@player_bag.contents.any? do |item| 
           true if item.name == 'test success'
-        end).to be true
+        end).to be true 
       end
     end
-    context 'when using a held item on a comaptible item on the floor' do
+    context 'when using a held item on a compatible item on the floor' do
+      let(:input) {['test', 'object', 'on', 'test', 'block']}
       it 'will add to the players inventory if they have enough capacity' do
         @player_bag.add_item(item)
         @floor.add_item(item2)
-        subject.use(['test', 'object', 'on', 'test', 'block'])
+        subject.use(input)
         expect(@player_bag.contents.include?(item)).to be false
         expect(@floor.contents.include?(item2)).to be false
         expect(@player_bag.contents.any? do |item| 
@@ -289,11 +291,12 @@ describe Main do
       end
     end
     context 'when combining an item that is too heavy for the player' do
-      let(:item) { Item.new('heavy test item', 1, 'combine', 'it is a heavy test item', 'test block') }
+      let(:item) { CombinableItem.new('heavy test item', 1, 'test block', 'it is a heavy test item') }
+      let(:input) {['heavy','test', 'item', 'on', 'test', 'block']}
       it 'will add to the floor' do
         @player_bag.add_item(item)
         @floor.add_item(item2)
-        subject.use(['heavy','test', 'item', 'on', 'test', 'block'])
+        subject.use(input)
         expect(@player_bag.contents.include?(item)).to be false
         expect(@floor.contents.include?(item2)).to be false
         expect(@floor.contents.any? do |item| 
@@ -301,14 +304,44 @@ describe Main do
         end).to be true
       end
     end
-    context 'when using 2 held items that are both on the floor that are comaptible' do
+    context 'when using 2 held items that are both on the floor that are compatible' do
+      let(:input){['test', 'object', 'on', 'test', 'block']}
       it 'will fail' do
         @floor.add_item(item)
         @floor.add_item(item2)
-        subject.use(['test', 'object', 'on', 'test', 'block'])
+        subject.use(input)
         expect(subject.output_content).to include("\e[31m")
       end
     end
-
+    context 'when trying to use a key and not providing an arguement to use with' do
+      let(:item){Key.new('test key',1,'large door','it is a test key')}
+      let(:input){['test', 'key']}
+      it 'will ask for more input' do
+        @player_bag.add_item(item)
+        allow($stdout).to receive(:write)
+        expect(ARGF).to receive(:gets).and_return('')
+        subject.use(input)
+      end
+    end
+    context 'when trying to use a combinable item and not providing an arguement to use with' do
+      let(:input){['test', 'object']}
+      it 'will ask for more input' do
+        @player_bag.add_item(item)
+        allow($stdout).to receive(:write)
+        expect(ARGF).to receive(:gets).and_return('')
+        subject.use(input)
+      end
+    end
+    context 'when trying to use a switch and not providing an arguement to use with' do
+      let(:item){DoorSwitch.new('test switch', 20, 'test room', 'south') }
+      let(:input){['test', 'switch']}
+      it 'will succeed' do
+        @floor.add_item(item)
+        subject.use(input)
+        expect(subject.current_location.neighbors.any? do |neighbor|
+          true if neighbor[:name] == 'test room'
+        end).to be true
+      end
+    end
   end
 end
