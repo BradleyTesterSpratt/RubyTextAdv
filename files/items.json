@@ -1,0 +1,10 @@
+{
+  "items": [
+    {
+      "name": "you're dead",
+      "weight": 0,
+      "type": "combine",
+      "requirements": "fork, plug socket"
+    }
+  ]
+}

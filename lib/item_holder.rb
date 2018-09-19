@@ -1,4 +1,7 @@
 require_relative 'item'
+require_relative 'door_switch'
+require_relative 'key'
+require_relative 'combinable_item'
 
 class ItemHolder
   def initialize(capacity)
@@ -23,13 +26,11 @@ class ItemHolder
 
   def remove_item(item)
     @current_weight = @current_weight - item.weight
-    @contents.delete(item) if item.class == Item
+    @contents.delete(item) if item.is_a? Item
   end
 
   def check_capacity(weight)
-    if weight+@current_weight <= @capacity
-      return true
-    end 
+    weight + @current_weight <= @capacity
   end
 
   def display_contents

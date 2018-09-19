@@ -14,14 +14,16 @@
       "items": [
         {
           "name": "round key",
-          "inspect_desc": "it has a key ring that says \"first door\" on it",
+          "desc": "it has a key ring that says \"first door\" on it",
           "weight": 1,
-          "use_with": "first door"
+          "use_with": "first door",
+          "type": "key"
         },
         {
           "name": "fork",
           "weight": 2,
-          "use_with": "plug socket"
+          "use_with": "plug socket",
+          "type": "combine"
         },
         {
           "name": "small rock",

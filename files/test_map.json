@@ -25,16 +25,27 @@
           "name": "round key",
           "desc": "it has a key ring that says \"first door\" on it",
           "weight": 1,
-          "use_with": "first door"
+          "door": "first door",
+          "type": "key"
+        },
+        {
+          "name": "square key",
+          "desc": "it has a key ring that says \"back door\" on it",
+          "weight": 1,
+          "door": "back door",
+          "type": "key"
         },
         {
           "name": "fork",
           "weight": 2,
-          "use_with": "plug socket"
+          "use_with": "plug socket, three small holes ",
+          "type": "combine"
         },
         {
           "name": "small rock",
-          "weight": 18
+          "weight": 18,
+          "use_with": "chisel",
+          "type": "combine"
         },
         {
           "name": "big rock",
@@ -63,7 +74,19 @@
       "items": [
         {
           "name": "plug socket",
-          "weight": 30
+          "weight": 30,
+          "type": "combine"
+        },
+        {
+          "name": "three small holes",
+          "weight": 30,
+          "type": "combine"
+        },
+        {
+          "name": "chisel",
+          "weight": 2,
+          "use_with": "small rock",
+          "type": "combine"
         }
       ]
     },
@@ -75,6 +98,20 @@
         {
           "name": "Entrance",
           "direction": "east"
+        }
+      ],
+      "items": [
+        {
+          "name": "test object",
+          "weight": 1,
+          "use_with": "test block",
+          "type": "combine"
+        },
+        {
+          "name": "test block",
+          "weight": 1,
+          "use_with": "test object",
+          "type": "combine"
         }
       ]
     },
@@ -88,6 +125,47 @@
           "direction": "west"
         }
       ]
+    },
+    {
+      "name": "secret room",
+      "desc": "You are in a secret room",
+      "long_desc": "You are in the secret room",      
+      "neighbors": [
+        {
+          "name": "Entrance",
+          "direction": "south"
+        }
+      ]
+    }
+  ],
+  "items": [
+    {
+      "name": "test success",
+      "weight": 2,
+      "type": "combine",
+      "requirements": "test object, test block"
+    },
+    {
+      "name": "heavy test success",
+      "weight": 40,
+      "type": "combine",
+      "requirements": "heavy test item, test block"
+    },
+    {
+      "name": "fork lever",
+      "weight": 40,
+      "type": "switch",
+      "requirements": "fork, three small holes",
+      "new_neighbor": 
+        {
+          "name": "secret room",
+          "direction": "north"
+        }
+    },
+    {
+      "name": "flint",
+      "weight": 2,
+      "requirements": "chisel, small rock"
     }
   ]
 }

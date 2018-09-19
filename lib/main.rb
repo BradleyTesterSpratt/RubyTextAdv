@@ -9,7 +9,6 @@ require 'tty-box'
 
 class Main
   def initialize
-    build_map(Constants::LevelOne)
     @inv_content = ''
     @room_content = ''
     @output_content = ''
@@ -25,18 +24,16 @@ class Main
     while play
       @inv_content= @inventory.contents.empty? ? get_string('Empty','green') : get_string(@inventory.display_contents.join(', ').to_s,"green")
       print_frames
-      @parser.call(get_input('Enter Command : ','yellow'))
-      commands, params = @parser.retrieve
-      case 
+      commands, params = @parser.call(get_input('Enter Command : ','yellow'))
+      case
+        when commands.nil? then @output_content = get_string("please enter a valid command","red")
         when commands[0] == "go" then move(commands[1])
-        when commands[0] == "look" then look(commands[1])
-        when commands[0] == "inspect" then look_at
+        when commands[0] == "look" then look(commands[1],params)
         when commands[0] == "help" then help
-        when commands[0] == "grab" then grab(params,@current_location.floor)
-        when commands[0] == "drop" then drop(params,@current_location.floor)
+        when commands[0] == "grab" then grab(params)
+        when commands[0] == "drop" then drop(params)
         when commands[0] == "quit" then play = quit
         when commands[0] == "use" then use(params)
-        else @output_content = get_string("please enter a valid command","red")
       end
     end
     clear
@@ -55,6 +52,7 @@ class Main
   end
 
   def inital_setup
+    build_map(Constants::TestMap)
     help
     print_frames
     set_location(map[0])
@@ -75,20 +73,29 @@ class Main
   end
 
   def help
-    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go back\nlook, look around, grab\nquit, help"
+    @room_content = get_string("Valid commands are:","green") + " \ngo north, go east, go west, go south, go back\nlook at item, look at the room, look around\ngrab, drop, use, use item on item\nquit, help"
   end
 
-  def look(command)
+  def look(command,params)
     case
       when command == "around" then look_around
-      #when command == "at" then look_at
-      else look_room
+      when command == "at" then look_at(params)
+      when command.nil? 
+        print get_string("Look at what?: ","yellow")
+        item=gets.chomp
     end
   end
 
-  def look_at
-    #check params against floor and inv for valid item
-    #give that item's details.
+  def look_at(params)
+    params = params.join(' ')
+    if params == 'the room' then look_room
+    else
+      item_list = @inventory.contents + @current_location.floor.contents
+      @output_content = get_string("There is no #{params}", 'red')
+      item_list.each do |item|
+        @output_content = get_string("#{item.desc} and it weighs #{item.weight}", 'green') if item.name == params
+      end
+    end
   end
 
   def look_room
@@ -166,11 +173,28 @@ class Main
       end
       if !ent['items'].nil?
         ent['items'].each do |item|
-          room.fill(Item.new(item['name'],item['weight'],item['desc'],item['use_with']))
+          room.fill(build_items(item))
         end
       end
       @map << room
     end 
+    @combined_items = build_combined_items(level_data, Constants::CombinedItems)
+  end
+
+  def build_items(item)
+    case
+      when item['type'] == 'key' then Key.new(item['name'],item['weight'],item['door'],item['desc'])
+      when item['type'] == 'combine' then CombinableItem.new(item['name'],item['weight'],item['use_with'],item['desc'])
+      when item['type'] == 'switch' then DoorSwitch.new(item['name'],item['weight'],item['new_neighbor']['name'],item['new_neighbor']['direction'],item['desc'])
+      else Item.new(item['name'],item['weight'],item['desc'])
+    end
+  end
+
+
+  def build_combined_items(level_data,combined_items)
+    items = JSON.parse(File.read(combined_items))
+    items = items.merge(level_data){|k,o,v| o + v}
+    items = items.select{|k, _| k == "items"}
   end
 
   def print_frames
@@ -183,14 +207,14 @@ class Main
     end
     out_box = TTY::Box.frame(
       width: 50, 
-      height: 3,  
+      height: 4,  
       border: :thick, 
       style: { border: { fg: :yellow } } ) do
       @output_content
     end
     inv_box = TTY::Box.frame(
       width: 50, 
-      height: 3,  
+      height: 4,  
       border: :thick, 
       title: {top_left: "INVENTORY"}, 
       style: { border: { fg: :green } } ) do
@@ -199,23 +223,24 @@ class Main
     print room_box,out_box,inv_box
   end
 
-  def grab(params,container)
-    if container.contents.empty?
-      @output_content = get_string("There are no items","red")
+  def move_item(params, origin, destination)
+    interaction, action  = origin == @inventory ? ['drop','dropped'] : ['grab','picked up'] 
+    if origin.contents.empty?
+      @output_content = get_string("There are no items to #{interaction}","red")
     elsif params.empty?
-      print get_string("Enter object to grab: ","yellow")
-      item=gets.chomp
+      print get_string("Enter object to #{interaction}: ","yellow")
+      item = gets.chomp
     else
       item = params.join(' ').chomp
     end
     if !item.nil?
     found = false         
-      container.contents.each do |valid_item| 
+      origin.contents.each do |valid_item| 
         if item == valid_item.name  
           found = true
-          if @inventory.add_item(valid_item)
-            container.remove_item(valid_item)
-            @output_content = get_string("#{@player.name} picked up the #{item}","green")
+          if destination.add_item(valid_item)
+            origin.remove_item(valid_item)
+            @output_content = get_string("#{@player.name} #{action} the #{item}","green")
           else 
             @output_content = get_string("#{item} is too heavy","red")
           end
@@ -225,50 +250,92 @@ class Main
     end
   end
 
-  def drop (params,container)
-    if @inventory.contents.empty?
-      @output_content = get_string("#{@player.name} has nothing to drop","red")
-    elsif params.empty?
-      print get_string("Enter object to drop: ","yellow")
-      item=gets.chomp
-    else
-      item = params.join(' ').chomp
-    end
-    if !item.nil?
-      found = false
-      @inventory.contents.each do |valid_item| 
-        if item == valid_item.name
-        found = true  
-          if container.add_item(valid_item)
-            @inventory.remove_item(valid_item)
-            @output_content = get_string("#{@player.name} dropped the #{item}","green")
-          else
-            @output_content = get_string("There is no room on the floor for #{item}","red")
-          end
-        end
-      end
-      @output_content = get_string("#{@player.name} does not have #{item}","red") if !found 
-    end
+  def grab(params)
+    move_item(params, @current_location.floor, @inventory) 
+  end
+
+  def drop (params)
+    move_item(params,@inventory,@current_location.floor)
   end
 
   def use (params)
-    #@interactive_objects = inventory + floor + doors
     params = params.join(' ').chomp.split(' on ')
-    @inventory.contents.each do |item|
-      if params[0] == item.name && params[1] == item.use_with
-        #@interactive_objects.each do |object|
-          # if object == item.use_with
-          #   do stuff
+    room_contents = @current_location.floor.contents + @inventory.contents 
+    item = room_contents.find{ |item| item.name == params[0] }
+    if (item.nil? || !item.type == 'switch')  
+      @output_content = get_string("You are not holding a #{params[0]}", 'red') 
+    else
+      switch_use(item,params[1])
+    end
+  end
 
-        if item.name.include? 'key'
-          @current_location.neighbors.each do |neighbor|
-            if neighbor[:door]==params[1]
-              @output_content = get_string("#{neighbor[:door]} is unlocked","green")
-              @current_location.unlock_neighbor(neighbor)
-            end
-          end
+  def switch_use(item, other_item)
+    case
+      when item.type == 'key' then 
+        if held?(item)
+          use_key(item, other_item)
+        else
+          @output_content = get_string("You are not holding #{item.name}","red")
         end
-      end
+      when item.type == 'combine' then 
+        if held?(item)
+          use_combine(item, other_item)
+        else
+          @output_content = get_string("You are not holding #{item.name}","red")
+        end
+      when item.type == 'switch' then use_door_switch(item)
+      else @output_content = get_string("You cannot use #{item.name} like that","red")
+    end
+  end
+
+  def use_key(key, door_name)
+    while door_name.nil?
+      door_name = get_input("use #{key.name} with which door?: ", 'yellow')
+    end
+    neighbor = @current_location.neighbors.find{ |neighbor| neighbor[:door] == door_name}
+    if neighbor.nil? 
+      @output_content = get_string("There isn't a #{door_name} to open", 'red')
+    elsif key.door == door_name
+      @output_content = get_string("#{neighbor[:door]} is unlocked", 'green')
+      @current_location.unlock_neighbor(neighbor)
+    else
+      @output_content = get_string("#{door_name} isn't unlocked with #{key.name}", 'red')
+    end
+  end
+
+  def use_combine(item, item_name)
+    while item_name.nil?
+      item_name = get_input("use #{item.name} with which what?: ", 'yellow')
+    end
+    (@inventory.contents + @current_location.floor.contents).each do |other_item|
+      combine_item(item, other_item) if item_name == other_item.name
+    end
+  end
+
+  def combine_item(item_one, item_two)
+    item = @combined_items['items'].find {|item| item['requirements'].include?(item_one.name) && item['requirements'].include?(item_two.name) }
+    if item.nil?
+      @output_content = get_string("#{item_one.name} cannot be used with #{item_two.name}", "red")
+    else
+      @inventory.remove_item(item_one)
+      held?(item_two) ? @inventory.remove_item(item_two) : @current_location.floor.remove_item(item_two) 
+      combined_item = build_items(item)
+      @current_location.floor.add_item(combined_item) if not @inventory.add_item(combined_item) 
+      @output_content = get_string("#{item_one.name} and #{item_two.name} has become #{combined_item.name}", "green")
+    end
+  end
+
+  def held?(item)
+    @inventory.contents.include?(item)
+  end
+
+  def use_door_switch(item)
+    if item.active
+      @current_location.add_neighbor(item.neighbor_name,item.neighbor_direction)
+      item.use_switch
+      @output_content = get_string("The #{item.name} opened a hidden door opened to the #{item.neighbor_direction}", "green")
+    else
+      @output_content = get_string("The #{item.name} did nothing", "red")
     end
   end
 
@@ -282,3 +349,5 @@ end
 if __FILE__ == $0
   Main.new.play
 end
+
+#when it creates a door switch in code, generates it all wrong
