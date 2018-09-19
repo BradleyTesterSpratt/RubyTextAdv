@@ -135,7 +135,7 @@ describe Main do
         let(:input) { %w[test item] }
         it 'should add the item to the player inventory' do
           @floor.add_item(item)
-          subject.grab(input, @floor)
+          subject.grab(input)
           expect(@floor.contents.include?(item)).to be false
           expect(@player_bag.contents.include?(item)).to be true
         end
@@ -143,7 +143,7 @@ describe Main do
       context 'given an invalid item to pick up' do
         let(:input) { %w[test item] }
         it 'should not add the item to the player inventory' do
-          subject.grab(input, @floor)
+          subject.grab(input)
           expect(@floor.contents.include?(item)).to be false
           expect(@player_bag.contents.include?(item)).to be false
         end
@@ -153,7 +153,7 @@ describe Main do
         it 'should request input from user' do
           allow($stdout).to receive(:write)
           expect(ARGF).to receive(:gets).and_return('')
-          subject.grab(input, @floor)
+          subject.grab(input)
         end
       end
     end
@@ -161,14 +161,14 @@ describe Main do
       context 'when requesting to drop an item with an empty inventory' do
         let(:input) { %w[test item] }
         it 'should alert the player there is nothing to drop' do
-          subject.drop(input, @floor)
+          subject.drop(input)
           expect(subject.output_content).to include("\e[31m")
         end
       end
       context "when requesting to drop an item that isn't in the inventory and inventory is not empty" do
         let(:input) { %w[test item] }
         it 'it should not drop the item' do
-          subject.drop(input, @floor)
+          subject.drop(input)
           expect(@floor.contents.include?(item)).to be false
           expect(@player_bag.contents.include?(item)).to be false
         end
@@ -177,7 +177,7 @@ describe Main do
         let(:input) { %w[test item] }
         it 'it should drop the item' do
           @player_bag.add_item(item)
-          subject.drop(input, @floor)
+          subject.drop(input)
           expect(@floor.contents.include?(item)).to be true
           expect(@player_bag.contents.include?(item)).to be false
         end
@@ -252,7 +252,7 @@ describe Main do
       let(:input) { 'east' }
       let(:params) { %w[round key on first door] }
       it 'move should return success' do
-        subject.grab(%w[round key], @floor)
+        subject.grab(%w[round key])
         subject.use(params)
         subject.move(input)
         expect(subject.previous_location.last).not_to eq subject.current_location

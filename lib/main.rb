@@ -30,8 +30,8 @@ class Main
         when commands[0] == "go" then move(commands[1])
         when commands[0] == "look" then look(commands[1],params)
         when commands[0] == "help" then help
-        when commands[0] == "grab" then grab(params,@current_location.floor)
-        when commands[0] == "drop" then drop(params,@current_location.floor)
+        when commands[0] == "grab" then grab(params)
+        when commands[0] == "drop" then drop(params)
         when commands[0] == "quit" then play = quit
         when commands[0] == "use" then use(params)
       end
@@ -223,23 +223,24 @@ class Main
     print room_box,out_box,inv_box
   end
 
-  def grab(params,container)
-    if container.contents.empty?
-      @output_content = get_string("There are no items","red")
+  def move_item(params, origin, destination)
+    interaction, action  = origin == @inventory ? ['drop','dropped'] : ['grab','picked up'] 
+    if origin.contents.empty?
+      @output_content = get_string("There are no items to #{interaction}","red")
     elsif params.empty?
-      print get_string("Enter object to grab: ","yellow")
-      item=gets.chomp
+      print get_string("Enter object to #{interaction}: ","yellow")
+      item = gets.chomp
     else
       item = params.join(' ').chomp
     end
     if !item.nil?
     found = false         
-      container.contents.each do |valid_item| 
+      origin.contents.each do |valid_item| 
         if item == valid_item.name  
           found = true
-          if @inventory.add_item(valid_item)
-            container.remove_item(valid_item)
-            @output_content = get_string("#{@player.name} picked up the #{item}","green")
+          if destination.add_item(valid_item)
+            origin.remove_item(valid_item)
+            @output_content = get_string("#{@player.name} #{action} the #{item}","green")
           else 
             @output_content = get_string("#{item} is too heavy","red")
           end
@@ -249,30 +250,12 @@ class Main
     end
   end
 
-  def drop (params,container)
-    if @inventory.contents.empty?
-      @output_content = get_string("#{@player.name} has nothing to drop","red")
-    elsif params.empty?
-      print get_string("Enter object to drop: ","yellow")
-      item=gets.chomp
-    else
-      item = params.join(' ').chomp
-    end
-    if !item.nil?
-      found = false
-      @inventory.contents.each do |valid_item| 
-        if item == valid_item.name
-        found = true  
-          if container.add_item(valid_item)
-            @inventory.remove_item(valid_item)
-            @output_content = get_string("#{@player.name} dropped the #{item}","green")
-          else
-            @output_content = get_string("There is no room on the floor for #{item}","red")
-          end
-        end
-      end
-      @output_content = get_string("#{@player.name} does not have #{item}","red") if !found 
-    end
+  def grab(params)
+    move_item(params, @current_location.floor, @inventory) 
+  end
+
+  def drop (params)
+    move_item(params,@inventory,@current_location.floor)
   end
 
   def use (params)
